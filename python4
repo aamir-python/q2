@@ -1,0 +1,78 @@
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+wielen = pd.read_csv('wielen.csv')
+
+massa_car = 0.5            # [kg]
+massa_wiel = 0.23           # [kg]
+oppervlak_car = 0.2*0.1    # [m2]
+cw_car = 0.8               # [-] Cw waarde van de wagen (luchtweerstand)
+g = 9.81                   # [m/s2] zwaartekrachtversnelling
+u_veer0 = 0.5              # [m] initiele uitrekking veer
+k_veer = 25                # [N/m] veerconstante
+x0 = 0                     # [m] startpositie
+v0 = 0                     # [m] startsnelheid
+rho = 1.2                  # [kg/m3] dichtheid lucht
+diameter_as = 0.012        # [m]
+traagheidsmoment = 0.0016  # [...]
+cr = 0.1                   # [-] lagerweerstand
+
+
+def f_aandrijving(x):
+    u_veer = u_veer0 - x
+    if u_veer>0:
+        return  u_veer*k_veer
+    else:
+        return 0
+
+def f_wrijving(v):
+    f_luchtvrijving = 0.5*rho*oppervlak_car*cw_car*v**2
+    if v > 0:
+        f_lagers = cr*massa_car*g
+    else:
+        f_lagers = 0
+    return f_luchtvrijving + f_lagers
+
+
+def versnelling(x, v):
+    if x > 5:
+        return 0
+    else:
+        som_krachten = f_aandrijving(x) - f_wrijving(v)
+        return som_krachten/(massa_car+4*massa_wiel+4*traagheidsmoment/(diameter_wiel/2)**2)
+
+
+def intergreer(tijdspan):
+    a = np.zeros(len(tijdspan))
+    v = np.zeros(len(tijdspan))
+    x = np.zeros(len(tijdspan))
+    x[0] = x0   # zou je in dit geval ook weg kunnen laten, want is al 0
+    v[0] = v0   # zou je in dit geval ook weg kunnen laten, want is al 0
+    delta_t = tijdspan[1]-tijdspan[0]
+    for n in range(len(tijdspan)):
+            a[n] = versnelling(x[n], v[n])
+            if n < len(tijdspan)-1:
+                v[n + 1] = v[n] + delta_t*a[n]
+                x[n + 1] = x[n] + delta_t*v[n]
+    return v, x  # a wordt niet gebruikt buiten de functie
+
+t=np.linspace(0, 10, 10000)
+
+
+for i in range(len(wielen)):
+    massa_wiel = wielen['massa'][i]
+    traagheidsmoment = wielen['traagheidsmoment'][i]
+    diameter_wiel = wielen['diameter'][i]
+    cr = wielen['cr'][i]
+    snelheid, positie = intergreer(t)
+    plt.plot(positie, snelheid, label=wielen['type'][i])
+    eindsnelheid = snelheid[-1]
+    print('eindsnelheid bij wiel {} is {:.2f} m/s'.format(wielen['type'][i], eindsnelheid))
+
+plt.xlabel('afstand [s]')
+plt.ylabel('snelheid [m/s]')
+plt.xlim(0, 5)
+plt.grid()
+plt.legend()
