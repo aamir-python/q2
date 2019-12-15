@@ -1,0 +1,65 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+versnellingen = pd.read_csv('versnellingen.csv')
+
+massa_car = 1000           # [kg]
+oppervlak_car = 1.5*1.4    # [m2]
+cw_car = 0.2               # [-] Cw waarde van de wagen (luchtweerstand)
+g = 9.81                   # [m/s2] zwaartekrachtversnelling
+x0 = 0                     # [m] startpositie
+v0 = 0                     # [m/s] startsnelheid
+rho = 1.2                  # [kg/m3] dichtheid lucht
+straal_wiel = 0.35         # [m]
+
+
+def koppel(toerental):
+    return 300*(1-((toerental-3000)/4500)**2)+toerental/20
+
+
+def f_aandrijving(v):
+    for i in range(len(versnellingen)):
+        if v < versnellingen['tot'][i]:
+            trede = i
+            break
+    toerental = v/straal_wiel*versnellingen['overbrenging'][trede]/(2*np.pi)*60
+    return koppel(toerental)*versnellingen['overbrenging'][trede] # let op, hier staat een fout.
+    # hier had nog de straal van het wiel moeten staan om van moment kracht te maken.
+
+
+def f_wrijving(V):
+    return 0.5*rho*oppervlak_car*cw_car*V**2
+
+
+def versnelling(v):
+    som_krachten = f_aandrijving(v) - f_wrijving(v)
+    return som_krachten/massa_car
+
+
+def intergreer(tijdspan):
+    a = np.zeros(len(tijdspan))
+    v = np.zeros(len(tijdspan))
+    x = np.zeros(len(tijdspan))
+
+    x[0] = x0  # kun je weglten omdat x0 = 0
+    v[0] = v0  # kun je weglten omdat x0 = 0
+
+    delta_t = tijdspan[1]-tijdspan[0]
+    for n in range(len(tijdspan)-1):
+            a[n] = versnelling(v[n])
+            v[n + 1] = v[n] + delta_t*a[n]
+
+    return a, v  # x wordt verer niet gebruikt buiten de functie
+
+
+t = np.linspace(0, 15, 10001)
+acc, vel = intergreer(t)
+
+plt.plot(t, vel, label='snelheid')
+plt.plot(t, acc, label='versnelling')
+plt.xlabel('tijd [s]')
+plt.legend()
+plt.grid()
+
+print('De maximale snelheid is {:.2f} km/h'.format(max(vel)*3.6))
